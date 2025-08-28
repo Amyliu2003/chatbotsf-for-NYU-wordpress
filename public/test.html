@@ -1,0 +1,96 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- <meta http-equiv="Content-Security-Policy"
+  content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval';
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com data:;
+    img-src 'self' data: https:;
+    connect-src 'self' http://localhost:8787 https://wp.nyu.edu http://localhost:3000;
+    object-src 'none';
+    frame-ancestors 'self';
+  "> -->
+
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Campus Cravings Chat</title>
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+</head>
+<style>
+  :root { --accent:#dd9933; --bg:#fff; --fg:#1e1e1e; }
+  body { margin:0; font: 15px/1.4 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--fg); }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+  h1 { font: 700 18px/1 Inter; color: var(--accent); margin: 0 0 10px; letter-spacing: .5px; }
+  .log { border:1px solid #eee; border-radius:12px; padding:12px; height: 380px; overflow:auto; background:#fff; }
+  .m { margin:8px 0; }
+  .m.user { text-align:right; }
+  .m .b { display:inline-block; padding:8px 10px; border-radius:12px; background:#f7f7f7; }
+  .m.user .b { background:#fff3e5; border:1px solid #ffe0b8; }
+  form { display:flex; gap:8px; margin-top:10px; }
+  input { flex:1; padding:10px 12px; border-radius:9999px; border:1px solid #ddd; }
+  button { padding:10px 16px; border-radius:9999px; border:0; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; }
+  .src { font-size:12px; color:#666; margin-top:6px; }
+  .src a { color:#666; }
+
+  @font-face {
+  font-family: 'Lato';
+  src: url('/fonts/Lato-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('/fonts/Lato-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+body {
+  font-family: 'Lato', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+</style>
+<div class="wrap">
+  <h1>Ask Campus Cravings</h1>
+  <div id="log" class="log"></div>
+  <form id="f">
+    <input id="q" placeholder="Ask about dishes, places, or recipes…" autocomplete="off">
+    <button>Ask</button>
+  </form>
+</div>
+<script>
+const log = document.getElementById('log');
+const f = document.getElementById('f');
+const q = document.getElementById('q');
+
+function add(role, html) {
+  const d = document.createElement('div');
+  d.className = 'm '+role;
+  d.innerHTML = `<div class="b">${html}</div>`;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+f.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = q.value.trim();
+  if (!text) return;
+  add('user', text);
+  q.value='';
+
+  const res = await fetch('/api/chat', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ message: text })
+  });
+  const data = await res.json();
+  const cites = (data.citations||[])
+    .map(c => `<a target="_blank" href="${c.url}">[${c.n}] ${c.title||'Source'}</a>`).join(' ');
+  add('bot', `${(data.answer||'').replace(/\n/g,'<br>')}<div class="src">${cites}</div>`);
+});
+</script>

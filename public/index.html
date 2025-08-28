@@ -1,0 +1,255 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Campus Cravings Chat</title>
+<style>
+  :root{
+    --bg:#fff; --fg:#1e1e1e; --muted:#6b7280; --border:#e5e7eb;
+    --accent:#dd9933; --accent-weak:#ffe9c7; --danger:#ef4444; --ok:#10b981;
+    --bot:#f8fafc; --user:#fff3e5; --card:#ffffff;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;
+  }
+  .app{display:flex; flex-direction:column; height:100%;}
+  .header{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-bottom:1px solid var(--border); background:#fff; position:sticky; top:0; z-index:5;
+  }
+  .logo{width:28px;height:28px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:800;}
+  .title{font-weight:700;}
+  .status{font-size:12px;color:var(--muted);}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:999px;background:var(--ok);margin-right:6px}
+  .wrap{flex:1; display:flex; flex-direction:column; padding:12px; gap:8px; overflow:auto; background:linear-gradient(#fafafa,#fff);}
+  .msg{display:flex; gap:8px; align-items:flex-start; max-width:92%;}
+  .msg.bot{align-self:flex-start;}
+  .msg.user{align-self:flex-end; flex-direction:row-reverse;}
+  .avatar{
+    width:28px;height:28px;border-radius:999px; background:#e5e7eb; color:#374151;
+    display:grid;place-items:center; font-weight:700; flex:0 0 28px;
+  }
+  .bubble{
+    padding:10px 12px; border-radius:14px; border:1px solid var(--border);
+    background:var(--bot); box-shadow:0 1px 0 rgba(0,0,0,.03);
+  }
+  .msg.user .bubble{ background:var(--user); border-color:#ffd9a5; }
+  .bubble a{ color:#0d6efd; text-decoration:none; }
+  .bubble a:hover{ text-decoration:underline; }
+  .meta{margin-top:6px; font-size:11px; color:var(--muted);}
+  .quick{ display:flex; flex-wrap:wrap; gap:8px; padding:0 12px 8px 12px; }
+  .chip{
+    border:1px solid var(--border); background:#fff; color:#111827;
+    padding:6px 10px; border-radius:999px; cursor:pointer; font-size:12px;
+  }
+  .chip:hover{ border-color:#cbd5e1; background:#f8fafc; }
+  .composer{ display:flex; gap:8px; padding:10px; border-top:1px solid var(--border); background:#fff; }
+  .input{
+    flex:1; padding:10px 12px; border:1px solid var(--border); border-radius:999px; outline:none;
+  }
+  .btn{
+    border:0; background:var(--accent); color:#fff; font-weight:700; border-radius:999px; padding:10px 14px; cursor:pointer;
+  }
+  .btn[disabled]{ opacity:.6; cursor:not-allowed; }
+  .typing{ display:inline-block; min-width:24px; }
+  .dots{ display:inline-flex; gap:4px; align-items:center; }
+  .dotb{ width:6px; height:6px; border-radius:999px; background:#cbd5e1; animation:b 1s infinite ease-in-out; }
+  .dotb:nth-child(2){ animation-delay:.15s }
+  .dotb:nth-child(3){ animation-delay:.3s }
+  @keyframes b{ 0%,80%,100%{opacity:.3; transform:translateY(0)} 40%{opacity:1; transform:translateY(-3px)} }
+  .actions{display:flex; gap:8px; margin-top:6px;}
+  .pill{border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-size:11px; cursor:pointer; background:#fff;}
+  .pill:hover{ background:#f3f4f6;}
+  .error{ color:var(--danger); }
+  .sr-only{ position:absolute; left:-9999px; }
+</style>
+
+<div class="app" role="application" aria-label="Campus Cravings customer service chat">
+  <div class="header">
+    <div class="logo">CC</div>
+    <div>
+      <div class="title">Campus Cravings</div>
+      <div class="status"><span class="dot" aria-hidden="true"></span><span>Online</span></div>
+    </div>
+  </div>
+
+  <div id="log" class="wrap" aria-live="polite" aria-relevant="additions"></div>
+
+  <div class="quick" id="quick">
+    <button class="chip" data-q="Quick veggie ideas near NYU">Veggie ideas</button>
+    <button class="chip" data-q="Matcha drinks — options?">Matcha drinks</button>
+    <button class="chip" data-q="Budget lunch under $12">Budget lunch</button>
+    <button class="chip" data-q="Where to order salmon bowls?">Salmon bowls</button>
+  </div>
+
+  <form id="composer" class="composer">
+    <label class="sr-only" for="q">Message</label>
+    <input id="q" class="input" placeholder="Ask about dishes, places, or recipes…" autocomplete="off">
+    <button class="btn" id="send">Send</button>
+  </form>
+</div>
+
+<script>
+(function(){
+  const API = '/api/chat';
+  const log = document.getElementById('log');
+  const form = document.getElementById('composer');
+  const input = document.getElementById('q');
+  const sendBtn = document.getElementById('send');
+  const quick = document.getElementById('quick');
+  const KEY = 'cc-history-v1';
+
+  // --- utilities
+  const now = () => new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstChild; }
+  function scrollBottom(){ log.scrollTop = log.scrollHeight; }
+
+  // --- renderers
+  function renderMsg(role, html, meta='', actionsHtml=''){
+    const avatar = role === 'user' ? 'You' : 'CC';
+    const color  = role === 'user' ? '#111' : '#111';
+    const node = el(`
+      <div class="msg ${role}">
+        <div class="avatar" aria-hidden="true">${avatar[0]}</div>
+        <div class="bubble">
+          <div class="content">${html}</div>
+          ${actionsHtml ? `<div class="actions">${actionsHtml}</div>` : ''}
+          <div class="meta">${meta}</div>
+        </div>
+      </div>
+    `);
+    log.appendChild(node); scrollBottom();
+  }
+
+  let typingNode = null;
+  function showTyping(){
+    hideTyping();
+    typingNode = el(`
+      <div class="msg bot">
+        <div class="avatar" aria-hidden="true">C</div>
+        <div class="bubble"><span class="typing"><span class="dots"><span class="dotb"></span><span class="dotb"></span><span class="dotb"></span></span></span></div>
+      </div>
+    `);
+    log.appendChild(typingNode); scrollBottom();
+  }
+  function hideTyping(){
+    if (typingNode && typingNode.parentNode) typingNode.parentNode.removeChild(typingNode);
+    typingNode = null;
+  }
+
+  // --- persistence
+  function loadHistory(){
+    try{ const arr = JSON.parse(localStorage.getItem(KEY)||'[]'); arr.forEach(m => renderMsg(m.role, m.html, m.meta)); }
+    catch(e){}
+  }
+  function saveMessage(role, html){
+    try{
+      const arr = JSON.parse(localStorage.getItem(KEY)||'[]');
+      arr.push({ role, html, meta: now() });
+      localStorage.setItem(KEY, JSON.stringify(arr).slice(-10000)); // keep it small
+    }catch(e){}
+  }
+
+  // --- feedback actions (thumbs)
+  function feedbackBar(){
+    return `
+      <button class="pill" data-act="up"   title="Helpful">👍</button>
+      <button class="pill" data-act="down" title="Not helpful">👎</button>
+      <button class="pill" data-act="copy" title="Copy">Copy</button>
+    `;
+  }
+
+  // --- send flow
+  async function ask(text){
+    if(!text) return;
+    // user bubble
+    renderMsg('user', escapeHtml(text), now());
+    saveMessage('user', escapeHtml(text));
+
+    // loading
+    showTyping(); sendBtn.disabled = true; input.disabled = true;
+
+    try{
+      const res = await fetch(API, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+
+      hideTyping(); sendBtn.disabled = false; input.disabled = false;
+
+      if (!res.ok || !data || (!data.answer && !data.citations)) {
+        renderMsg('bot', `<span class="error">Sorry, something went wrong.</span>`, now());
+        return;
+      }
+
+      // Prefer model-crafted HTML answer; fall back to links from citations if present
+      let html = '';
+      if (data.answer) {
+        html = sanitizeHtml(data.answer);
+      } else if (Array.isArray(data.citations) && data.citations.length) {
+        const links = data.citations.slice(0,3).map(c => `<a target="_blank" rel="noopener" href="${escapeAttr(c.url)}">${escapeHtml(c.title||'Source')}</a>`).join(' · ');
+        html = links;
+      } else {
+        html = 'I’m not sure.';
+      }
+
+      renderMsg('bot', html, now(), feedbackBar());
+      saveMessage('bot', html);
+
+    }catch(err){
+      hideTyping(); sendBtn.disabled = false; input.disabled = false;
+      renderMsg('bot', `<span class="error">Network error. Please try again.</span>`, now());
+    }finally{
+      input.focus(); scrollBottom();
+    }
+  }
+
+  // --- helpers: minimal sanitizer (allow only <a>)
+  function sanitizeHtml(s){
+    const div = document.createElement('div'); div.innerHTML = s;
+    div.querySelectorAll('*').forEach(n=>{
+      if(n.tagName.toLowerCase() !== 'a'){ n.replaceWith(document.createTextNode(n.textContent||'')); }
+      else{
+        n.setAttribute('target','_blank'); n.setAttribute('rel','noopener');
+        const href = n.getAttribute('href') || '#';
+        n.setAttribute('href', href);
+      }
+    });
+    return div.innerHTML;
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+
+  // --- events
+  form.addEventListener('submit', (e)=>{ e.preventDefault(); const t=input.value.trim(); if(!t) return; input.value=''; ask(t); });
+  quick.addEventListener('click', (e)=>{
+    if(e.target.matches('.chip')){ ask(e.target.getAttribute('data-q')); }
+  });
+  log.addEventListener('click', (e)=>{
+    if(e.target.matches('.pill')){
+      const act = e.target.getAttribute('data-act');
+      if(act === 'copy'){
+        const bubble = e.target.closest('.bubble').querySelector('.content').innerText;
+        navigator.clipboard.writeText(bubble).catch(()=>{});
+        e.target.textContent = 'Copied';
+        setTimeout(()=>{ e.target.textContent = 'Copy'; }, 1200);
+      } else {
+        e.target.textContent = (act==='up'?'Thanks!':'Noted');
+        setTimeout(()=>{ e.target.textContent = (act==='up'?'👍':'👎'); }, 1200);
+      }
+    }
+  });
+
+  // --- init
+  loadHistory();
+  if(log.children.length === 0){
+    renderMsg('bot', 'Hi! Ask me about dishes, places to eat near NYU, or site recipes. Try the quick options below.', now());
+  }
+  input.focus();
+})();
+</script>
