@@ -49,6 +49,8 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
+    
+
     // embed query
     const emb = await openai.embeddings.create({
       model: 'text-embedding-3-small',
@@ -58,12 +60,13 @@ app.post('/api/chat', async (req, res) => {
 
     const context = hits.map(h => `• (${(h.score).toFixed(2)}) ${h.metadata.title}\n  ${h.metadata.preview}\n  ${h.metadata.url}`).join('\n\n');
 
-    const sys = `You are Campus Cravings assistant. Be concise. Use the provided context only. 
-When giving references, write them as inline clickable links in natural sentences. 
-For example: You can try [“Matcha Strawberry Latte”](https://gongcha.com/matcha-strawberry) at [“Gongcha”](https://gongcha.com).
-Do not add numeric citations or a Sources list.
-If unsure, say so.
-`;
+    const sys = `You are Campus Cravings assistant.
+Be concise. Use whatever context is available.
+Always respond in valid HTML only (no Markdown).
+Use semantic tags (<p>, <ul>, <li>, <strong>, <a>).
+When referencing a dish or place, write anchor links like:
+You can try <a href="DISH_URL">Matcha Strawberry Latte</a> at <a href="PLACE_URL">Gong cha</a>.
+Open links in a new tab is OK; if stripped by WP it's fine.`;
 
     const prompt = [
       { role: 'system', content: sys },

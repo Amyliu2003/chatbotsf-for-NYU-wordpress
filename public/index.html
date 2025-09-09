@@ -221,20 +221,17 @@
   return div.innerHTML;
 }
 
-
-  function linkifyMarkdown(s) {
+function linkifyMarkdown(s) {
   if (!s) return '';
   let out = String(s);
 
   // [text](https://example.com)
-  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, text, url) =>
-    `<a href="${url}">${text}</a>`
-  );
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    (m, text, url) => `<a href="${url}">${text}</a>`);
 
-  // Bare URLs -> <a>
-  out = out.replace(/(^|[\s(])((https?:\/\/[^\s)]+))/g, (m, pre, url) =>
-    `${pre}<a href="${url}">${url}</a>`
-  );
+  // bare URLs -> <a>
+  out = out.replace(/(^|[\s(])((https?:\/\/[^\s)]+))/g,
+    (m, pre, url) => `${pre}<a href="${url}">${url}</a>`);
 
   return out;
 }
