@@ -36,6 +36,7 @@
     padding:10px 12px; border-radius:14px; border:1px solid var(--border);
     background:var(--bot); box-shadow:0 1px 0 rgba(0,0,0,.03);
   }
+  .bubble .content { white-space: pre-wrap; }
   .msg.user .bubble{ background:var(--user); border-color:#ffd9a5; }
   .bubble a{ color:#0d6efd; text-decoration:none; }
   .bubble a:hover{ text-decoration:underline; }
@@ -87,7 +88,7 @@
       <div class="title">Campus Cravings</div>
       <div class="status"><span class="dot" aria-hidden="true"></span><span>Online</span></div>
     </div>
-    <button id="chat-close" class="icon-btn close" aria-label="Close chat" title="Close">×</button>
+    <button id="chat-close" class="icon-btn close" aria-label="Close chat" title="Close" style="color:#333;background:transparent; border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:40px;font-weight:100;border:none;line-height:1;padding:0px 30px;">×</button>
   </div>
 
   <div id="log" class="wrap" aria-live="polite" aria-relevant="additions"></div>
@@ -224,18 +225,51 @@
   }
 
   // --- helpers: minimal sanitizer (allow only <a>)
-  function sanitizeHtml(s){
-    const div = document.createElement('div'); div.innerHTML = s;
-    div.querySelectorAll('*').forEach(n=>{
-      if(n.tagName.toLowerCase() !== 'a'){ n.replaceWith(document.createTextNode(n.textContent||'')); }
-      else{
-        n.setAttribute('target','_blank'); n.setAttribute('rel','noopener');
-        const href = n.getAttribute('href') || '#';
-        n.setAttribute('href', href);
+    function sanitizeHtml(input) {
+  const allowed = new Set(['A','B','STRONG','I','EM','U','BR','P','UL','OL','LI','CODE','PRE']);
+  const div = document.createElement('div');
+  div.innerHTML = String(input || '');
+
+  (function walk(node){
+    // Work on a copy because we'll modify while iterating
+    Array.from(node.childNodes).forEach(child => {
+      if (child.nodeType === 1) { // element
+        const tag = child.tagName;
+        if (!allowed.has(tag)) {
+          // replace disallowed element with its text content
+          child.replaceWith(document.createTextNode(child.textContent || ''));
+        } else {
+          // clean attributes
+          if (tag === 'A') {
+            const href = child.getAttribute('href') || '#';
+            child.setAttribute('href', href);
+            child.setAttribute('target', '_blank');
+            child.setAttribute('rel', 'noopener');
+            // remove any other attributes
+            Array.from(child.attributes).forEach(attr => {
+              if (!['href','target','rel'].includes(attr.name.toLowerCase())) {
+                child.removeAttribute(attr.name);
+              }
+            });
+          } else {
+            // strip all attributes for other allowed tags
+            Array.from(child.attributes).forEach(attr => child.removeAttribute(attr.name));
+          }
+          // recurse
+          walk(child);
+        }
+      } else if (child.nodeType === 3) {
+        // text node: leave as is
+      } else {
+        // comments, etc → drop
+        child.remove();
       }
     });
-    return div.innerHTML;
-  }
+  })(div);
+
+  return div.innerHTML;
+}
+
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
   function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 
