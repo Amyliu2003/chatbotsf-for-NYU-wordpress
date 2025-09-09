@@ -5,9 +5,19 @@
   const box = document.createElement('div');
   box.style = "position:fixed;bottom:16px;right:16px;z-index:99999";
   box.innerHTML = `
-    <button id="cc-open" style="background:#dd9933;color:#fff;border:0;border-radius:9999px;padding:10px 14px;font-weight:700;cursor:pointer">Chat</button>
-    <div id="cc-wrap" style="display:none;box-shadow:0 8px 24px rgba(0,0,0,.15)">
-      <iframe id="cc-frame" src="${host}" style="width:380px;height:520px;border:0;border-radius:12px;display:block;background:#fff; box-shadow:0 0px 24px rgba(0,0,0,.15)"></iframe>
+    <button id="cc-open" 
+      style="background:#dd9933;color:#fff;border:0;border-radius:9999px;
+             padding:10px 14px;font-weight:700;cursor:pointer;">
+      Chat
+    </button>
+    <div id="cc-wrap" style="display:none;box-shadow:0 8px 24px rgba(0,0,0,.15);position:relative;">
+      <iframe id="cc-frame" src="${host}" 
+        style="width:380px;height:520px;border:0;border-radius:12px;display:block;background:#fff; 
+               box-shadow:0 0px 24px rgba(0,0,0,.15)">
+      </iframe>
+      <button id="cc-close" style="color:#333;background:transparent;border-radius:50%;width:24px;cursor:pointer;font-size:40px;font-weight:100;border:none;line-height:0.5;padding: 0px;" title="Close chat" aria-label="Close chat">
+        ×
+      </button>
     </div>`;
   document.getElementById('cc-chat-root').appendChild(box);
 
@@ -15,20 +25,29 @@
   const wrap = document.getElementById('cc-wrap');
   const close = document.getElementById('cc-close');
 
-  // open chat → hide button
   btn.addEventListener('click', ()=> {
     wrap.style.display = 'block';
     btn.style.display = 'none';
   });
 
-  // close chat → show button
   close.addEventListener('click', ()=> {
     wrap.style.display = 'none';
     btn.style.display = 'inline-block';
   });
 
+  // Inject CSS to remove focus/active outline
+  const css = `
+    #cc-open:focus, #cc-open:active,
+    #cc-close:focus, #cc-close:active {
+      outline:none !important;
+      box-shadow:none !important;
+    }`;
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
 })();
 </script>
+
 
 
 
