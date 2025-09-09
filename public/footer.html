@@ -1,0 +1,358 @@
+<div id="cc-chat-root"></div>
+<script>
+(function(){
+  const host = "https://chatbotsf-for-nyu-wordpress-production.up.railway.app"; 
+  const box = document.createElement('div');
+  box.style = "position:fixed;bottom:16px;right:16px;z-index:99999";
+  box.innerHTML = `
+    <button id="cc-open" style="background:#dd9933;color:#fff;border:0;border-radius:9999px;padding:10px 14px;font-weight:700;cursor:pointer">Chat</button>
+    <div id="cc-wrap" style="display:none;box-shadow:0 8px 24px rgba(0,0,0,.15)">
+      <iframe id="cc-frame" src="${host}" style="width:380px;height:520px;border:0;border-radius:12px;display:block;background:#fff; box-shadow:0 0px 24px rgba(0,0,0,.15)"></iframe>
+      <button id="cc-close" style="position:absolute;top:8px;right:8px;background:#fff;border:1px solid #ddd;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:20px;font-weight:700;line-height:1;">×</button>
+    </div>`;
+  document.getElementById('cc-chat-root').appendChild(box);
+
+  const btn = document.getElementById('cc-open');
+  const wrap = document.getElementById('cc-wrap');
+  const close = document.getElementById('cc-close');
+
+  // open chat → hide button
+  btn.addEventListener('click', ()=> {
+    wrap.style.display = 'block';
+    btn.style.display = 'none';
+  });
+
+  // close chat → show button
+  close.addEventListener('click', ()=> {
+    wrap.style.display = 'none';
+    btn.style.display = 'inline-block';
+  });
+})();
+</script>
+
+
+
+<script>
+(() => {
+  /* ===============================
+     Campus Cravings — Sitewide JS
+     (category feature + homepage tiles)
+     =============================== */
+
+  // ---------- REST base (multisite-safe) ----------
+  function resolveRestBase() {
+    const apiLink = document.querySelector('link[rel="https://api.w.org/"]');
+    if (apiLink?.href) return apiLink.href.replace(/\/+$/, '') + '/wp/v2';
+    const canonical = document.querySelector('link[rel="canonical"]')?.href || location.href;
+    const u = new URL(canonical);
+    const segs = u.pathname.split('/').filter(Boolean);
+    const siteBase = segs.length ? `/${segs[0]}` : '';
+    return `${u.origin}${siteBase}/wp-json/wp/v2`;
+  }
+  const API = resolveRestBase();
+
+  // ---------- tiny helpers ----------
+  const fetchJSON = (u) => fetch(u, { credentials: 'same-origin' }).then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status} for ${u}`);
+    return r.json();
+  });
+  const stripTags = (html = '') => {
+    const d = document.createElement('div');
+    d.innerHTML = html || '';
+    return (d.textContent || d.innerText || '').trim();
+  };
+
+  // First viable <img> in content (incl. srcset / data-src)
+  function firstImageFromHTML(html = '', alt = '') {
+    const d = document.createElement('div');
+    d.innerHTML = html || '';
+    const img = d.querySelector('img');
+    if (!img) return null;
+    let src = img.getAttribute('src') || img.getAttribute('data-src') || '';
+    if (!src) {
+      const ss = img.getAttribute('srcset') || '';
+      const first = ss.split(',').map(s => s.trim().split(' ')[0]).find(Boolean);
+      if (first) src = first;
+    }
+    return src ? { src, alt: img.getAttribute('alt') || alt || '' } : null;
+  }
+
+  function featuredImage(post) {
+    const fm = post?._embedded?.['wp:featuredmedia']?.[0];
+    if (fm?.source_url) {
+      const s = fm.media_details?.sizes || {};
+      return {
+        src: s.medium_large?.source_url || s.large?.source_url || fm.source_url,
+        alt: fm.alt_text || stripTags(post.title?.rendered)
+      };
+    }
+    return firstImageFromHTML(post?.content?.rendered || '', stripTags(post.title?.rendered));
+  }
+  
+    // First <p class="dish-quote"> in content, else excerpt/content text (trimmed to max)
+  function getDishExcerpt(post, max = 240) {
+    let text = '';
+    const html = post?.content?.rendered || '';
+    if (html) {
+      const d = document.createElement('div');
+      d.innerHTML = html;
+      const q = d.querySelector('p.dish-quote');
+      if (q) text = (q.textContent || '').trim();
+    }
+    if (!text) text = stripTags(post?.excerpt?.rendered || post?.content?.rendered || '');
+    if (!text) return '';
+    return text.length > max ? text.slice(0, max) + '…' : text;
+  }
+
+  // $8–15, 2-7, etc. (prefer meta.price_range if exposed)
+  function getPriceRange(post) {
+    const pr = post?.meta?.price_range;
+    if (typeof pr === 'string' && pr.trim()) return pr.trim();
+    const raw = stripTags(post?.excerpt?.rendered || post?.content?.rendered || '');
+    const m = raw.match(/\$?\s*([0-9]+)\s*[-–~]\s*([0-9]+)/);
+    return m ? `${m[1]}~${m[2]}` : null;
+  }
+
+  // Per-day key (one pick per category per day)
+  function todayKey(slug) {
+    const d = new Date();
+    const ymd = [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('');
+    return `cc_pick_${slug}_${ymd}`;
+  }
+
+  // ---------- Categories + Posts ----------
+async function getCategoryIds(slugs){
+  if (!slugs.length) return {};
+  const list = slugs.map(s => encodeURIComponent(s)).join(',');
+  const url  = `${API}/categories?per_page=100&slug=${list}&_fields=id,slug`;
+  const cats = await fetch(url, { credentials: 'same-origin' }).then(r => r.json());
+  // Map slug -> id
+  const m = {};
+  cats.forEach(c => { m[c.slug] = c.id; });
+  console.log('[cc] available cats:', m);   // now readable
+  return m;
+}
+
+  const cache = new Map(); // key → posts[]
+
+  // Fetch posts for a category ID (cached)
+  async function getPosts(catId, perPage = 30) {
+    const key = `posts_${catId}_${perPage}`;
+    if (cache.has(key)) return cache.get(key);
+    const url = `${API}/posts?per_page=${perPage}&_embed=wp:featuredmedia`
+              + `&_fields=id,link,title,excerpt,content,_embedded&categories=${catId}`;
+    const ps = await fetchJSON(url);
+    cache.set(key, ps);
+    return ps;
+  }
+
+  // ---------- Category Feature (fills .drink-feature) ----------
+  function detectCategorySlugForFeature(feature) {
+    const ds = feature?.getAttribute('data-cat');
+    if (ds) return ds.trim();
+
+    const cls = Array.from(document.body.classList || []);
+    const hit = cls.find(c => /^category-/.test(c));
+    if (hit) return hit.replace(/^category-/, '').trim();
+
+    const parts = location.pathname.replace(/\/+$/, '').split('/').filter(Boolean);
+    const i = parts.indexOf('category');
+    return (i >= 0 && parts[i + 1]) ? parts[i + 1].toLowerCase() : (parts[parts.length - 1] || '').toLowerCase();
+  }
+
+  async function bootCategoryFeature() {
+    const feature = document.querySelector('.drink-feature');
+    if (!feature) return;
+
+    const slug = detectCategorySlugForFeature(feature);
+    if (!slug) return;
+
+    // dom refs
+    const el = {
+      thumb:     feature.querySelector('.drink-thumb'),
+      titleNode: feature.querySelector('.drink-name'),
+      excerpt:   feature.querySelector('.drink-desc'),
+      price:     feature.querySelector('.range'),
+      learnMore: feature.querySelector('.drink-action.learn-more')
+    };
+
+    try {
+      const cats = await fetchJSON(`${API}/categories?slug=${encodeURIComponent(slug)}&_fields=id,slug`);
+      const catId = cats?.[0]?.id;
+      if (!catId) return;
+
+      const posts = await getPosts(catId, 40);
+      if (!posts?.length) return;
+
+      // chosen ID priority: ?pick → saved today → random
+      const k = todayKey(slug);
+      const urlPick = Number(new URLSearchParams(location.search).get('pick') || 0);
+
+      let chosen = null;
+      if (urlPick) {
+        chosen = posts.find(p => p.id === urlPick) || null;
+        if (chosen) {
+          localStorage.setItem(k, String(chosen.id));
+          try { history.replaceState(null, '', location.pathname); } catch {}
+        }
+      }
+      if (!chosen) {
+        const saved = Number(localStorage.getItem(k) || 0);
+        if (saved) chosen = posts.find(p => p.id === saved) || null;
+      }
+      if (!chosen) {
+        chosen = posts[Math.floor(Math.random() * posts.length)];
+        localStorage.setItem(k, String(chosen.id));
+      }
+
+      // apply to DOM
+      const im = featuredImage(chosen);
+      if (el.thumb && im?.src) {
+        el.thumb.src = im.src;
+        el.thumb.alt = im.alt || stripTags(chosen.title?.rendered);
+      }
+      if (el.titleNode) el.titleNode.textContent = stripTags(chosen.title?.rendered);
+      if (el.excerpt)   el.excerpt.textContent = getDishExcerpt(chosen, 240);
+      const pr = getPriceRange(chosen);
+      if (el.price && pr) el.price.textContent = pr;
+      if (el.learnMore)  el.learnMore.href = chosen.link;
+    } catch (e) {
+      console.error('[cc] category feature error:', e);
+    }
+  }
+
+  // ---------- Homepage Tiles (updates .today-food[data-cat]) ----------
+  function rememberArchiveHrefs() {
+    document.querySelectorAll('.today-food[data-cat]').forEach(tile => {
+      if (!tile.dataset.archive) tile.dataset.archive = tile.getAttribute('href') || '';
+    });
+  }
+
+  function paintTileFromPost(tile, post) {
+    const im = featuredImage(post);
+    if (im?.src) {
+      tile.style.backgroundImage =
+        `linear-gradient(rgba(0,0,0,0.1),rgba(0,0,0,0.1)),url('${im.src}')`;
+      tile.style.backgroundSize = 'cover';
+      tile.style.backgroundPosition = 'center';
+      tile.setAttribute('aria-label', stripTags(post.title?.rendered));
+    }
+    const base = tile.dataset.archive || tile.getAttribute('href') || '';
+    const sep  = base.includes('?') ? '&' : '?';
+    tile.href  = `${base}${sep}pick=${post.id}`;
+  }
+
+  async function updateTiles() {
+    const tiles = Array.from(document.querySelectorAll('.today-food[data-cat]'));
+    if (!tiles.length) return;
+
+    const slugs = Array.from(new Set(tiles.map(t => (t.dataset.cat || '').trim()).filter(Boolean)));
+    const slugToId = await getCategoryIds(slugs);
+
+    await Promise.all(tiles.map(async (tile) => {
+      const slug = (tile.dataset.cat || '').trim();
+      const catId = slugToId[slug];
+      if (!catId) return;
+
+      const posts = await getPosts(catId, 18);
+      if (!posts?.length) return;
+
+      const k = todayKey(slug);
+      const savedId = Number(localStorage.getItem(k) || 0);
+      const chosen = savedId
+        ? (posts.find(p => p.id === savedId) || posts[0])
+        : posts[Math.floor(Math.random() * posts.length)];
+
+      if (!savedId) localStorage.setItem(k, String(chosen.id));
+      paintTileFromPost(tile, chosen);
+    }));
+  }
+
+  function wireShuffle() {
+    const btn = document.getElementById('todays-shuffle');
+    if (!btn) return;
+
+    const spinOn  = () => { btn.style.transform = 'rotate(180deg)'; };
+    const spinOff = () => { btn.style.transform = ''; };
+
+    btn.addEventListener('click', async () => {
+      // Clear today's picks so new ones get chosen
+      document.querySelectorAll('.today-food[data-cat]').forEach(tile => {
+        const slug = (tile.dataset.cat || '').trim();
+        if (slug) localStorage.removeItem(todayKey(slug));
+      });
+      try { spinOn(); await updateTiles(); } finally { setTimeout(spinOff, 320); }
+    });
+
+    // a11y
+    btn.tabIndex = 0;
+    btn.setAttribute('role', 'button');
+    btn.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
+    });
+  }
+
+  function lazyBootHomepage() {
+    // Wait until the tile container is near the viewport
+    const firstTile = document.querySelector('.today-food[data-cat]');
+    if (!firstTile) return; // not on homepage
+
+    const container = firstTile.closest('div') || firstTile;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some(e => e.isIntersecting)) {
+        io.disconnect();
+        (async () => {
+          rememberArchiveHrefs();
+          await updateTiles();
+          wireShuffle();
+        })();
+      }
+    }, { rootMargin: '200px' });
+    io.observe(container);
+  }
+
+  // ---------- Boot both (runs only where relevant DOM exists) ----------
+  function boot() {
+    // category page feature (if .drink-feature exists)
+    bootCategoryFeature();
+    // homepage tiles (if .today-food exists)
+    lazyBootHomepage();
+  }
+
+  (document.readyState === 'loading')
+    ? document.addEventListener('DOMContentLoaded', boot)
+    : boot();
+})();
+</script>
+
+
+<script>
+function markWrappedLinks() {
+  document.querySelectorAll('.taxonomy-post_tag.wp-block-post-terms').forEach(container => {
+    const links = Array.from(container.querySelectorAll('a'));
+    if (!links.length) return;
+
+    // Clear previous state
+    container.classList.remove('is-wrapped');
+    links.forEach(a => a.classList.remove('wrapped'));
+
+    // Find first row top
+    const firstTop = links[0].offsetTop;
+    let anyWrapped = false;
+
+    // Mark any link that moved to a new row
+    links.forEach(a => {
+      if (a.offsetTop > firstTop) {
+        a.classList.add('wrapped');
+        anyWrapped = true;
+      }
+    });
+
+    if (anyWrapped) container.classList.add('is-wrapped');
+  });
+}
+
+window.addEventListener('load', markWrappedLinks);
+window.addEventListener('resize', markWrappedLinks);
+</script>
+

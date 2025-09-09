@@ -65,6 +65,19 @@
   .pill:hover{ background:#f3f4f6;}
   .error{ color:var(--danger); }
   .sr-only{ position:absolute; left:-9999px; }
+  .icon-btn{
+  border:1px solid var(--border);
+  background:#fff;
+  color:#111;
+  width:28px; height:28px;
+  border-radius:10px;
+  display:grid; place-items:center;
+  font-weight:700; font-size:18px; line-height:1;
+  cursor:pointer;
+}
+.icon-btn:hover{ background:#f8fafc; }
+.header .close{ margin-left:auto; }
+
 </style>
 
 <div class="app" role="application" aria-label="Campus Cravings customer service chat">
@@ -74,15 +87,16 @@
       <div class="title">Campus Cravings</div>
       <div class="status"><span class="dot" aria-hidden="true"></span><span>Online</span></div>
     </div>
+    <button id="chat-close" class="icon-btn close" aria-label="Close chat" title="Close">×</button>
   </div>
 
   <div id="log" class="wrap" aria-live="polite" aria-relevant="additions"></div>
 
   <div class="quick" id="quick">
-    <button class="chip" data-q="Quick veggie ideas near NYU">Veggie ideas</button>
+    <button class="chip" data-q="Quick appetizer ideas near NYU">Apetizer ideas</button>
     <button class="chip" data-q="Matcha drinks — options?">Matcha drinks</button>
     <button class="chip" data-q="Budget lunch under $12">Budget lunch</button>
-    <button class="chip" data-q="Where to order salmon bowls?">Salmon bowls</button>
+    <button class="chip" data-q="What do we know about strawberry shortcakes?">strawberry shortcakes?</button>
   </div>
 
   <form id="composer" class="composer">

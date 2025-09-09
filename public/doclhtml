@@ -1,0 +1,51 @@
+<!-- wp:tadv/classic-paragraph -->
+<section class="doc-wrap" style="color: #1f2937; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 28px; max-width: 900px; margin: 24px auto; font: 16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol';" aria-labelledby="doc-title">
+<section class="doc-body">
+<header class="doc-head" style="display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap;">
+
+<h2 class="doc-title">Documentation</h2>
+<h4>Hello! This is Amy Liu, applying for the on-campus position:<a style="color: #dd9933; text-decoration: underline; text-underline-offset: 2px;" href="https://nyu.joinhandshake.com/jobs/9920889"> Web Publishing WordPress Support &amp; AI Emerging Tech Solutions </a>.</h4>
+<p class="doc-note" style="color: #6b7280; margin: .5rem 0 0;">Please excuse the vibrancy and inconsistency of this page compared to others— it’s intentionally used as a creative playground to showcase my personality and web-building skills! <br />(That said, here is my <a style="color: #dd9933; text-decoration: underline; text-underline-offset: 2px;" href="https://docs.google.com/document/d/1D2tA824f5hmw8Yy5mLaoDFoyfHNPCVbWzDlIwBj38sY/edit?usp=sharing" aria-label="Resume link"> resume </a> again.)</p>
+<div class="doc-callouts" style="display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 0;" aria-label="Highlights"><span class="doc-chip" style="background: #f7f4ef; border: 1px solid #e9e2d6; color: #6b4e16; padding: 6px 10px; border-radius: 999px; font-weight: 600; font-size: .9rem; white-space: nowrap;"> WordPress </span> <span class="doc-chip" style="background: #f7f4ef; border: 1px solid #e9e2d6; color: #6b4e16; padding: 6px 10px; border-radius: 999px; font-weight: 600; font-size: .9rem; white-space: nowrap;">JavaScript</span> <span class="doc-chip" style="background: #f7f4ef; border: 1px solid #e9e2d6; color: #6b4e16; padding: 6px 10px; border-radius: 999px; font-weight: 600; font-size: .9rem; white-space: nowrap;">REST API</span> <span class="doc-chip" style="background: #f7f4ef; border: 1px solid #e9e2d6; color: #6b4e16; padding: 6px 10px; border-radius: 999px; font-weight: 600; font-size: .9rem; white-space: nowrap;">UI/UX</span> <span class="doc-chip" style="background: #f7f4ef; border: 1px solid #e9e2d6; color: #6b4e16; padding: 6px 10px; border-radius: 999px; font-weight: 600; font-size: .9rem; white-space: nowrap;">AI + RAG</span></div>
+</header>
+<section class="doc-section" style="margin: 28px 0 0;">
+<h2 class="doc-h2" style="font-size: clamp(18px,2vw,22px); margin: 0 0 12px; line-height: 1.3;">What I practiced on this site</h2>
+<p class="doc-lead" style="margin: 0 0 8px;">While creating this website, I gained experience in the following:</p>
+<div class="doc-grid" style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+<div class="doc-col" style="flex: 1 1 280px; min-width: 260px;">
+<ul>
+<li>Building custom Gutenberg layouts with clean, semantic HTML.</li>
+<li>Styling with theme-safe CSS and responsive design tokens.</li>
+<li>Fetching content via the WordPress REST API for dynamic sections.</li>
+<li>LocalStorage-based daily “picks” synced between pages.</li>
+</ul>
+</div>
+<div class="doc-col" style="flex: 1 1 280px; min-width: 260px;">
+<ul>
+<li>Accessible patterns (toggle buttons, keyboard focus, ARIA labels).</li>
+<li>Lightweight JavaScript utilities (wrap detection, deep-linking).</li>
+<li>Embedding an AI chatbot (OpenAI + Node.js + basic RAG).</li>
+<li>Menu items that expand submenus but aren’t clickable parents.</li>
+</ul>
+</div>
+</div>
+</section>
+<!-- Cleaned “Aesop”/recursive demo as plain HTML -->
+<section class="doc-section" style="margin: 28px 0 0;">
+<div class="recursive">
+<h3>This is a recursive content component.</h3>
+<p>Most of the WordPress functions’ contexts are HTML-editable, meaning you can directly write HTML tags, and thus support inline style like <strong>strong</strong>, <i>italics</i>, <u>underline,</u> and also lists like:</p>
+<div style="display: flex; gap: 20px; align-items: flex-start;">
+<ul>
+<li>unordered lists</li>
+</ul>
+<ol>
+<li>and ordered lists</li>
+</ol>
+</div>
+<div>It also supports <img style="max-width: 80px; vertical-align: middle;" src="https://wp.nyu.edu/tischschoolofthearts-creativecoding/files/2025/07/output-onlinepngtools-7.png" alt="image" />, <a style="color: #dd9933; text-decoration: underline; text-underline-offset: 2px;" href="#">links</a>, <button>buttons</button>, and CSS styles like flexbox. <br /><input style="margin-top: 10px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; width: 100%; max-width: 340px;" type="text" placeholder="Isn't this very great?" /></div>
+</div>
+</section>
+</section>
+</section>
+<!-- /wp:tadv/classic-paragraph -->
