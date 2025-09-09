@@ -36,7 +36,6 @@
     padding:10px 12px; border-radius:14px; border:1px solid var(--border);
     background:var(--bot); box-shadow:0 1px 0 rgba(0,0,0,.03);
   }
-  .bubble .content { white-space: pre-wrap; }
   .msg.user .bubble{ background:var(--user); border-color:#ffd9a5; }
   .bubble a{ color:#0d6efd; text-decoration:none; }
   .bubble a:hover{ text-decoration:underline; }
@@ -88,6 +87,7 @@
       <div class="title">Campus Cravings</div>
       <div class="status"><span class="dot" aria-hidden="true"></span><span>Online</span></div>
     </div>
+    <button id="chat-close" class="icon-btn close" aria-label="Close chat" title="Close" style="color:#333;background:transparent; border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:40px;font-weight:100;border:none;line-height:1;padding:0px 30px;">×</button>
   </div>
 
   <div id="log" class="wrap" aria-live="polite" aria-relevant="additions"></div>
@@ -176,55 +176,7 @@
     `;
   }
 
-  // --- send flow
-  async function ask(text){
-    if(!text) return;
-    // user bubble
-    renderMsg('user', escapeHtml(text), now());
-    saveMessage('user', escapeHtml(text));
-
-    // loading
-    showTyping(); sendBtn.disabled = true; input.disabled = true;
-
-    try{
-      const res = await fetch(API, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ message: text })
-      });
-      const data = await res.json();
-
-      hideTyping(); sendBtn.disabled = false; input.disabled = false;
-
-      if (!res.ok || !data || (!data.answer && !data.citations)) {
-        renderMsg('bot', `<span class="error">Sorry, something went wrong.</span>`, now());
-        return;
-      }
-
-      // Prefer model-crafted HTML answer; fall back to links from citations if present
-      let html = '';
-      if (data.answer) {
-        html = sanitizeHtml(data.answer);
-      } else if (Array.isArray(data.citations) && data.citations.length) {
-        const links = data.citations.slice(0,3).map(c => `<a target="_blank" rel="noopener" href="${escapeAttr(c.url)}">${escapeHtml(c.title||'Source')}</a>`).join(' · ');
-        html = links;
-      } else {
-        html = 'I’m not sure.';
-      }
-
-      renderMsg('bot', html, now(), feedbackBar());
-      saveMessage('bot', html);
-
-    }catch(err){
-      hideTyping(); sendBtn.disabled = false; input.disabled = false;
-      renderMsg('bot', `<span class="error">Network error. Please try again.</span>`, now());
-    }finally{
-      input.focus(); scrollBottom();
-    }
-  }
-
-  // --- helpers: minimal sanitizer (allow only <a>)
-    function sanitizeHtml(input) {
+  function sanitizeHtml(input) {
   const allowed = new Set(['A','B','STRONG','I','EM','U','BR','P','UL','OL','LI','CODE','PRE']);
   const div = document.createElement('div');
   div.innerHTML = String(input || '');
@@ -269,6 +221,75 @@
   return div.innerHTML;
 }
 
+
+  function linkifyMarkdown(s) {
+  if (!s) return '';
+  let out = String(s);
+
+  // [text](https://example.com)
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, text, url) =>
+    `<a href="${url}">${text}</a>`
+  );
+
+  // Bare URLs -> <a>
+  out = out.replace(/(^|[\s(])((https?:\/\/[^\s)]+))/g, (m, pre, url) =>
+    `${pre}<a href="${url}">${url}</a>`
+  );
+
+  return out;
+}
+
+
+  // --- send flow
+  async function ask(text){
+    if(!text) return;
+    // user bubble
+    renderMsg('user', escapeHtml(text), now());
+    saveMessage('user', escapeHtml(text));
+
+    // loading
+    showTyping(); sendBtn.disabled = true; input.disabled = true;
+
+    try{
+      const res = await fetch(API, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+
+      hideTyping(); sendBtn.disabled = false; input.disabled = false;
+
+      if (!res.ok || !data || (!data.answer && !data.citations)) {
+        renderMsg('bot', `<span class="error">Sorry, something went wrong.</span>`, now());
+        return;
+      }
+
+      let html = '';
+      if (data.answer) {
+        html = linkifyMarkdown(data.answer);  // convert Markdown to <a>
+        html = sanitizeHtml(html);            // then sanitize (allows <a>)
+      } else if (Array.isArray(data.citations) && data.citations.length) {
+        const links = data.citations.slice(0,3)
+          .map(c => `<a href="${escapeAttr(c.url)}">${escapeHtml(c.title||'Source')}</a>`)
+          .join(' · ');
+        html = links;
+      } else {
+        html = 'I’m not sure.';
+      }
+      renderMsg('bot', html, now(), feedbackBar());
+      saveMessage('bot', html);
+
+    }catch(err){
+      hideTyping(); sendBtn.disabled = false; input.disabled = false;
+      renderMsg('bot', `<span class="error">Network error. Please try again.</span>`, now());
+    }finally{
+      input.focus(); scrollBottom();
+    }
+  }
+
+  // --- helpers: minimal sanitizer (allow only <a>)
+    
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
   function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 
